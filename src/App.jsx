@@ -100,7 +100,7 @@ export default function App() {
         )}
 
         <div className="chat-input-area">
-          <p className="hint">Type &ldquo;error&rdquo; to test the error state.</p>
+          
           <div className="input-row">
             <input
               ref={inputRef}
