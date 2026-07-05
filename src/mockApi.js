@@ -1,29 +1,74 @@
 // Simulated backend. In a real app this file would be replaced by a fetch()
 // call to a real streaming endpoint (e.g. Server-Sent Events or a ReadableStream).
+//
+// generateReply() below is rule-based rather than a real model, but it
+// actually reads the user's message and reacts to it: greetings, questions,
+// thanks, farewells, and requests for a joke or help each get a distinct
+// reply, and the fallback case quotes the message back so the response is
+// always visibly tied to what was typed, not picked from a fixed pool.
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-// A small pool of canned replies so responses feel varied without needing a
-// real model behind them.
-const REPLIES = [
-  "That's a great question. Let me break it down for you step by step so it's easy to follow.",
-  "Here's what I found: the short answer is yes, and there are a couple of details worth knowing.",
-  "Thanks for sharing that. Based on what you described, I'd suggest starting with the simplest approach first.",
-  "Sure, I can help with that. Here's a quick summary, and I'm happy to go deeper on any part of it.",
-]
+const GREETING_WORDS = ['hi', 'hello', 'hey', 'yo', 'sup', 'good morning', 'good evening']
+const THANKS_WORDS = ['thank you', 'thanks', 'thx', 'appreciate it']
+const BYE_WORDS = ['bye', 'goodbye', 'see you', 'later', 'farewell']
 
-function pickReply(userMessage) {
-  const index = Math.abs(hashCode(userMessage)) % REPLIES.length
-  return REPLIES[index]
+function truncate(text, maxLen = 60) {
+  const trimmed = text.trim()
+  return trimmed.length > maxLen ? trimmed.slice(0, maxLen).trim() + '…' : trimmed
 }
 
-function hashCode(str) {
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i)
-    hash |= 0
+function includesAny(haystack, words) {
+  return words.some((w) => haystack.includes(w))
+}
+
+/**
+ * Produces a reply that is actually derived from the user's message content,
+ * rather than picked at random from a fixed list.
+ */
+function generateReply(userMessage) {
+  const raw = userMessage.trim()
+  const lower = raw.toLowerCase()
+  const wordCount = raw.split(/\s+/).filter(Boolean).length
+  const isQuestion = raw.endsWith('?')
+
+  if (includesAny(lower, GREETING_WORDS) && wordCount <= 4) {
+    return "Hey there! What would you like to talk about?"
   }
-  return hash
+
+  if (includesAny(lower, THANKS_WORDS)) {
+    return "You're welcome! Let me know if there's anything else you'd like to go over."
+  }
+
+  if (includesAny(lower, BYE_WORDS) && wordCount <= 4) {
+    return 'Take care! Come back any time you want to chat.'
+  }
+
+  if (lower.includes('joke')) {
+    return 'Why do programmers prefer dark mode? Because light attracts bugs.'
+  }
+
+  if (lower.includes('your name') || lower === 'who are you') {
+    return "I'm a mock assistant built for this demo, so I don't have a name of my own, just a job to do."
+  }
+
+  if (lower.includes('help')) {
+    return `Happy to help with "${truncate(raw)}". Since I'm a simulated assistant, I can't look anything up, but I can show you how streamed responses and error handling work in this UI.`
+  }
+
+  if (isQuestion) {
+    return `That's a good question: "${truncate(raw)}". I'm a mock backend, so I don't have a real answer, but this reply shows how your question flows through, streams back, and renders in the chat.`
+  }
+
+  if (wordCount === 1) {
+    return `Just "${raw}"? I can work with that. Give me a bit more detail and I'll tailor my reply to it.`
+  }
+
+  if (wordCount > 25) {
+    return `That's a detailed message (${wordCount} words). The key part I picked up on was: "${truncate(raw, 80)}". In a real integration this is where the actual model's answer would stream in.`
+  }
+
+  return `You said: "${truncate(raw)}". Here's a simulated reply that reflects it back, since this demo streams text without a real model behind it.`
 }
 
 /**
@@ -44,7 +89,7 @@ export async function* streamAssistantReply(userMessage) {
     )
   }
 
-  const fullReply = pickReply(userMessage)
+  const fullReply = generateReply(userMessage)
   const words = fullReply.split(' ')
 
   for (let i = 0; i < words.length; i++) {
